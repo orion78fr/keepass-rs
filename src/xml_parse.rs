@@ -104,6 +104,7 @@ pub(crate) fn parse_xml_block(xml: &[u8],
                     "Generator" => parsed_stack.push(Node::Generator(String::new())),
                     "DatabaseName" => parsed_stack.push(Node::DatabaseName(String::new())),
                     "DatabaseDescription" => parsed_stack.push(Node::DatabaseDescription(String::new())),
+                    "Icon" => parsed_stack.push(Node::CustomIcon(String::new(), String::new())),
                     _ => {}
                 }
             }
@@ -127,6 +128,7 @@ pub(crate) fn parse_xml_block(xml: &[u8],
                     "Generator",
                     "DatabaseName",
                     "DatabaseDescription",
+                    "Icon",
                 ]
                 .contains(&&local_name[..])
                 {
@@ -343,6 +345,12 @@ pub(crate) fn parse_xml_block(xml: &[u8],
                     }
                     (Some("DatabaseDescription"), Some(&mut Node::Metadata(ref mut mdt))) => {
                         mdt.description = c;
+                    }
+                    (Some("UUID"), Some(&mut Node::CustomIcon(ref mut uuid, _))) => {
+                        *uuid = c;
+                    }
+                    (Some("Data"), Some(&mut Node::CustomIcon(_, ref mut data))) => {
+                        *data = c;
                     }
                     _ => {}
                 }
