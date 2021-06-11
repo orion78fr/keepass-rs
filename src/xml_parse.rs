@@ -18,7 +18,11 @@ enum Node {
     AutoTypeAssociation(AutoTypeAssociation),
     ExpiryTime(String),
     Expires(bool),
-    Icon(Icon)
+    Icon(Icon),
+    Generator(String),
+    DatabaseName(String),
+    DatabaseDescription(String),
+    CustomIcon(String, String),
 }
 
 fn parse_xml_timestamp(t: &str) -> Result<chrono::NaiveDateTime> {
@@ -95,6 +99,11 @@ pub(crate) fn parse_xml_block(xml: &[u8],
                     "Expires" => parsed_stack.push(Node::Expires(bool::default())),
                     "IconID" => parsed_stack.push(Node::Icon(Icon::IconID(u8::default()))),
                     "CustomIconUUID" => parsed_stack.push(Node::Icon(Icon::CustomIcon(String::new()))),
+
+                    // Meta
+                    "Generator" => parsed_stack.push(Node::Generator(String::new())),
+                    "DatabaseName" => parsed_stack.push(Node::DatabaseName(String::new())),
+                    "DatabaseDescription" => parsed_stack.push(Node::DatabaseDescription(String::new())),
                     _ => {}
                 }
             }
@@ -115,6 +124,9 @@ pub(crate) fn parse_xml_block(xml: &[u8],
                     "Expires",
                     "IconID",
                     "CustomIconUUID",
+                    "Generator",
+                    "DatabaseName",
+                    "DatabaseDescription",
                 ]
                 .contains(&&local_name[..])
                 {
@@ -227,6 +239,35 @@ pub(crate) fn parse_xml_block(xml: &[u8],
                                 *icon = ic;
                             }
                         }
+
+                        Node::Generator(gen) => {
+                            if let Some(&mut Node::Metadata(Metadata{
+                                ref mut generator, ..
+                            })) = parsed_stack_head {
+                                *generator = gen;
+                            }
+                        }
+                        Node::DatabaseName(n) => {
+                            if let Some(&mut Node::Metadata(Metadata{
+                                ref mut name, ..
+                            })) = parsed_stack_head {
+                                *name = n;
+                            }
+                        }
+                        Node::DatabaseDescription(dsc) => {
+                            if let Some(&mut Node::Metadata(Metadata{
+                                ref mut description, ..
+                            })) = parsed_stack_head {
+                                *description = dsc;
+                            }
+                        }
+                        Node::CustomIcon(uuid, data) => {
+                            if let Some(&mut Node::Metadata(Metadata{
+                                ref mut custom_icons, ..
+                            })) = parsed_stack_head {
+                                custom_icons.insert(uuid, data);
+                            }
+                        }
                     }
                 }
             }
@@ -293,6 +334,15 @@ pub(crate) fn parse_xml_block(xml: &[u8],
                     }
                     (Some("CustomIconUUID"), Some(&mut Node::Icon(Icon::CustomIcon(ref mut icon)))) => {
                         *icon = c;
+                    }
+                    (Some("Generator"), Some(&mut Node::Metadata(ref mut mdt))) => {
+                        mdt.generator = c;
+                    }
+                    (Some("DatabaseName"), Some(&mut Node::Metadata(ref mut mdt))) => {
+                        mdt.name = c;
+                    }
+                    (Some("DatabaseDescription"), Some(&mut Node::Metadata(ref mut mdt))) => {
+                        mdt.description = c;
                     }
                     _ => {}
                 }
