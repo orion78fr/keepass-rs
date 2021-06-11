@@ -19,9 +19,6 @@ enum Node {
     ExpiryTime(String),
     Expires(bool),
     Icon(Icon),
-    Generator(String),
-    DatabaseName(String),
-    DatabaseDescription(String),
     CustomIcon(String, String),
 }
 
@@ -101,9 +98,6 @@ pub(crate) fn parse_xml_block(xml: &[u8],
                     "CustomIconUUID" => parsed_stack.push(Node::Icon(Icon::CustomIcon(String::new()))),
 
                     // Meta
-                    "Generator" => parsed_stack.push(Node::Generator(String::new())),
-                    "DatabaseName" => parsed_stack.push(Node::DatabaseName(String::new())),
-                    "DatabaseDescription" => parsed_stack.push(Node::DatabaseDescription(String::new())),
                     "Icon" => parsed_stack.push(Node::CustomIcon(String::new(), String::new())),
                     _ => {}
                 }
@@ -125,9 +119,6 @@ pub(crate) fn parse_xml_block(xml: &[u8],
                     "Expires",
                     "IconID",
                     "CustomIconUUID",
-                    "Generator",
-                    "DatabaseName",
-                    "DatabaseDescription",
                     "Icon",
                 ]
                 .contains(&&local_name[..])
@@ -242,27 +233,6 @@ pub(crate) fn parse_xml_block(xml: &[u8],
                             }
                         }
 
-                        Node::Generator(gen) => {
-                            if let Some(&mut Node::Metadata(Metadata{
-                                ref mut generator, ..
-                            })) = parsed_stack_head {
-                                *generator = gen;
-                            }
-                        }
-                        Node::DatabaseName(n) => {
-                            if let Some(&mut Node::Metadata(Metadata{
-                                ref mut name, ..
-                            })) = parsed_stack_head {
-                                *name = n;
-                            }
-                        }
-                        Node::DatabaseDescription(dsc) => {
-                            if let Some(&mut Node::Metadata(Metadata{
-                                ref mut description, ..
-                            })) = parsed_stack_head {
-                                *description = dsc;
-                            }
-                        }
                         Node::CustomIcon(uuid, data) => {
                             if let Some(&mut Node::Metadata(Metadata{
                                 ref mut custom_icons, ..
