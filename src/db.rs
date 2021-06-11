@@ -33,8 +33,39 @@ pub struct Database {
     /// Optional inner header information
     pub inner_header: InnerHeader,
 
+    /// The metadata of the Keepass database
+    pub metadata: Option<Metadata>,
+
     /// Root node of the KeePass database
     pub root: Group,
+}
+
+/// The metadata of a Keepass database
+#[derive(Debug)]
+pub struct Metadata {
+    /// The software that generated the database
+    pub generator: String,
+
+    /// The database name
+    pub name: String,
+
+    /// The database description
+    pub description: String,
+
+    /// Custom icons stored as base64.
+    /// Key is an UUID stored in the entry CustomIconUUID field
+    pub custom_icons: HashMap<String, String>,
+}
+
+impl Default for Metadata {
+    fn default() -> Self {
+        Metadata {
+            generator: String::new(),
+            name: String::new(),
+            description: String::new(),
+            custom_icons: HashMap::new()
+        }
+    }
 }
 
 impl Database {
@@ -78,7 +109,7 @@ impl Database {
                 file_major_version,
                 file_minor_version,
             }
-            .into()),
+                .into()),
         }
     }
 
@@ -124,11 +155,28 @@ impl Database {
                         file_major_version,
                         file_minor_version,
                     },
-                })
+                });
             }
         };
 
         Ok(data)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum Icon {
+    None,
+
+    /// The default included custom icons
+    IconID(u8),
+
+    /// Custom icon UUID, key in the Metadata.custom_icons
+    CustomIcon(String)
+}
+
+impl Default for Icon {
+    fn default() -> Self {
+        Icon::None
     }
 }
 
@@ -151,6 +199,9 @@ pub struct Group {
 
     /// Does this group expire
     pub expires: bool,
+
+    /// The icon of the group
+    pub icon: Icon
 }
 
 impl Group {
@@ -325,6 +376,7 @@ pub struct Entry {
     pub autotype: Option<AutoType>,
     pub expires: bool,
     pub times: HashMap<String, chrono::NaiveDateTime>,
+    pub icon: Icon,
 }
 
 impl<'a> Entry {

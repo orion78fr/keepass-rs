@@ -176,11 +176,12 @@ pub(crate) fn parse(data: &[u8], key_elements: &[Vec<u8>]) -> Result<Database> {
         children: Default::default(),
         expires: Default::default(),
         times: Default::default(),
+        icon: Default::default(),
     };
 
     // Parse XML data blocks
     for block_buffer in xml_blocks {
-        let block_group = xml_parse::parse_xml_block(&block_buffer, &mut *inner_decryptor)?;
+        let (_, block_group) = xml_parse::parse_xml_block(&block_buffer, &mut *inner_decryptor)?;
         root.children.push(Node::Group(block_group));
     }
 
@@ -199,6 +200,7 @@ pub(crate) fn parse(data: &[u8], key_elements: &[Vec<u8>]) -> Result<Database> {
     let db = Database {
         header: Header::KDBX3(header),
         inner_header: InnerHeader::None,
+        metadata: None,
         root,
     };
 

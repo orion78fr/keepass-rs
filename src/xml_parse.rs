@@ -6,10 +6,11 @@ use secstr::SecStr;
 use xml::name::OwnedName;
 use xml::reader::{EventReader, XmlEvent};
 
-use super::db::{AutoType, AutoTypeAssociation, Entry, Group, Value};
+use super::db::{AutoType, AutoTypeAssociation, Entry, Group, Value, Metadata, Icon};
 
 #[derive(Debug)]
 enum Node {
+    Metadata(Metadata),
     Entry(Entry),
     Group(Group),
     KeyValue(String, Value),
@@ -17,6 +18,7 @@ enum Node {
     AutoTypeAssociation(AutoTypeAssociation),
     ExpiryTime(String),
     Expires(bool),
+    Icon(Icon)
 }
 
 fn parse_xml_timestamp(t: &str) -> Result<chrono::NaiveDateTime> {
@@ -39,7 +41,8 @@ fn parse_xml_timestamp(t: &str) -> Result<chrono::NaiveDateTime> {
     }
 }
 
-pub(crate) fn parse_xml_block(xml: &[u8], inner_cipher: &mut dyn Cipher) -> Result<Group> {
+pub(crate) fn parse_xml_block(xml: &[u8],
+                              inner_cipher: &mut dyn Cipher) -> Result<(Option<Metadata>, Group)> {
     let parser = EventReader::new(xml);
 
     // Stack of parsed Node objects not yet associated with their parent
@@ -49,6 +52,7 @@ pub(crate) fn parse_xml_block(xml: &[u8], inner_cipher: &mut dyn Cipher) -> Resu
     let mut xml_stack: Vec<String> = vec![];
 
     let mut root_group: Group = Default::default();
+    let mut metadata: Option<Metadata> = None;
 
     for e in parser {
         match e.unwrap() {
@@ -60,6 +64,7 @@ pub(crate) fn parse_xml_block(xml: &[u8], inner_cipher: &mut dyn Cipher) -> Resu
                 xml_stack.push(local_name.clone());
 
                 match &local_name[..] {
+                    "Meta" => parsed_stack.push(Node::Metadata(Default::default())),
                     "Group" => parsed_stack.push(Node::Group(Default::default())),
                     "Entry" => parsed_stack.push(Node::Entry(Default::default())),
                     "String" => parsed_stack.push(Node::KeyValue(
@@ -88,6 +93,8 @@ pub(crate) fn parse_xml_block(xml: &[u8], inner_cipher: &mut dyn Cipher) -> Resu
                     }
                     "ExpiryTime" => parsed_stack.push(Node::ExpiryTime(String::new())),
                     "Expires" => parsed_stack.push(Node::Expires(bool::default())),
+                    "IconID" => parsed_stack.push(Node::Icon(Icon::IconID(u8::default()))),
+                    "CustomIconUUID" => parsed_stack.push(Node::Icon(Icon::CustomIcon(String::new()))),
                     _ => {}
                 }
             }
@@ -98,6 +105,7 @@ pub(crate) fn parse_xml_block(xml: &[u8], inner_cipher: &mut dyn Cipher) -> Resu
                 xml_stack.pop();
 
                 if [
+                    "Meta",
                     "Group",
                     "Entry",
                     "String",
@@ -105,6 +113,8 @@ pub(crate) fn parse_xml_block(xml: &[u8], inner_cipher: &mut dyn Cipher) -> Resu
                     "Association",
                     "ExpiryTime",
                     "Expires",
+                    "IconID",
+                    "CustomIconUUID",
                 ]
                 .contains(&&local_name[..])
                 {
@@ -119,6 +129,10 @@ pub(crate) fn parse_xml_block(xml: &[u8], inner_cipher: &mut dyn Cipher) -> Resu
                                 // A KeyValue was finished inside of an Entry -> add a field
                                 fields.insert(k, v);
                             }
+                        }
+
+                        Node::Metadata(m) => {
+                            metadata = Some(m)
                         }
 
                         Node::Group(finished_group) => {
@@ -199,6 +213,20 @@ pub(crate) fn parse_xml_block(xml: &[u8], inner_cipher: &mut dyn Cipher) -> Resu
                                 *expires = es;
                             }
                         }
+
+                        Node::Icon(ic) => {
+                            if let Some(&mut Node::Entry(Entry {
+                                ref mut icon, ..
+                            })) = parsed_stack_head
+                            {
+                                *icon = ic;
+                            } else if let Some(&mut Node::Group(Group {
+                                ref mut icon, ..
+                            })) = parsed_stack_head
+                            {
+                                *icon = ic;
+                            }
+                        }
                     }
                 }
             }
@@ -257,11 +285,14 @@ pub(crate) fn parse_xml_block(xml: &[u8], inner_cipher: &mut dyn Cipher) -> Resu
                     (Some("Window"), Some(&mut Node::AutoTypeAssociation(ref mut ata))) => {
                         ata.window = Some(c.to_owned());
                     }
-                    (
-                        Some("KeystrokeSequence"),
-                        Some(&mut Node::AutoTypeAssociation(ref mut ata)),
-                    ) => {
+                    (Some("KeystrokeSequence"), Some(&mut Node::AutoTypeAssociation(ref mut ata))) => {
                         ata.sequence = Some(c.to_owned());
+                    }
+                    (Some("IconID"), Some(&mut Node::Icon(Icon::IconID(ref mut icon)))) => {
+                        *icon = c.parse().unwrap_or(0);
+                    }
+                    (Some("CustomIconUUID"), Some(&mut Node::Icon(Icon::CustomIcon(ref mut icon)))) => {
+                        *icon = c;
                     }
                     _ => {}
                 }
@@ -271,5 +302,5 @@ pub(crate) fn parse_xml_block(xml: &[u8], inner_cipher: &mut dyn Cipher) -> Resu
         }
     }
 
-    Ok(root_group)
+    Ok((metadata, root_group))
 }

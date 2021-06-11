@@ -229,11 +229,12 @@ pub(crate) fn parse(data: &[u8], key_elements: &[Vec<u8>]) -> Result<Database> {
         .inner_random_stream
         .get_cipher(&inner_header.inner_random_stream_key)?;
 
-    let root = xml_parse::parse_xml_block(&xml, &mut *inner_decryptor)?;
+    let (metadata, root) = xml_parse::parse_xml_block(&xml, &mut *inner_decryptor)?;
 
     let db = Database {
         header: Header::KDBX4(header),
         inner_header: InnerHeader::KDBX4(inner_header),
+        metadata,
         root,
     };
 

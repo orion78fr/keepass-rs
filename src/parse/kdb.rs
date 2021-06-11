@@ -295,6 +295,7 @@ fn parse_db(header: &KDBHeader, data: &[u8]) -> Result<Group> {
         children: Default::default(),
         expires: Default::default(),
         times: Default::default(),
+        icon: Default::default(),
     };
 
     let mut pos = &data[..];
@@ -357,5 +358,6 @@ pub(crate) fn parse(data: &[u8], key_elements: &[Vec<u8>]) -> Result<Database> {
         header: Header::KDB(header),
         inner_header: InnerHeader::None,
         root: root_group,
+        metadata: None
     })
 }
